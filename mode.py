@@ -25,7 +25,7 @@ def train(args):
     
     
     if args.fine_tuning:        
-        generator.load_state_dict(torch.load(args.generator_path))
+        generator.load_state_dict(torch.load(args.generator_path, map_location=torch.device('cpu')))
         print("pre-trained model is loaded")
         print("path : %s"%(args.generator_path))
         
@@ -76,8 +76,6 @@ def train(args):
     VGG_loss = perceptual_loss(vgg_net)
     cross_ent = nn.BCELoss()
     tv_loss = TVLoss()
-    real_label = torch.ones((args.batch_size, 1)).to(device)
-    fake_label = torch.zeros((args.batch_size, 1)).to(device)
     
     while fine_epoch < args.fine_train_epoch:
         
@@ -92,6 +90,8 @@ def train(args):
             fake_prob = discriminator(output)
             real_prob = discriminator(gt)
             
+            real_label = torch.ones_like(real_prob).to(device)
+            fake_label = torch.zeros_like(fake_prob).to(device)
             d_loss_real = cross_ent(real_prob, real_label)
             d_loss_fake = cross_ent(fake_prob, fake_label)
             
@@ -110,6 +110,7 @@ def train(args):
             
             L2_loss = l2_loss(output, gt)
             percep_loss = args.vgg_rescale_coeff * _percep_loss
+            real_label = torch.ones_like(fake_prob).to(device)
             adversarial_loss = args.adv_coeff * cross_ent(fake_prob, real_label)
             total_variance_loss = args.tv_loss_coeff * tv_loss(args.vgg_rescale_coeff * (hr_feat - sr_feat)**2)
             
@@ -145,7 +146,7 @@ def test(args):
     loader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers = args.num_workers)
     
     generator = Generator(img_feat = 3, n_feats = 64, kernel_size = 3, num_block = args.res_num)
-    generator.load_state_dict(torch.load(args.generator_path))
+    generator.load_state_dict(torch.load(args.generator_path, map_location=torch.device('cpu')))
     generator = generator.to(device)
     generator.eval()
     
@@ -192,7 +193,7 @@ def test_only(args):
     loader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers = args.num_workers)
     
     generator = Generator(img_feat = 3, n_feats = 64, kernel_size = 3, num_block = args.res_num)
-    generator.load_state_dict(torch.load(args.generator_path))
+    generator.load_state_dict(torch.load(args.generator_path, map_location=torch.device('cpu')))
     generator = generator.to(device)
     generator.eval()
     

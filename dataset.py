@@ -5,6 +5,9 @@ from PIL import Image
 import numpy as np
 import random
 
+def is_image_file(filename):
+    return filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"))
+
 
 class mydata(Dataset):
     def __init__(self, LR_path, GT_path, in_memory = True, transform = None):
@@ -14,8 +17,8 @@ class mydata(Dataset):
         self.in_memory = in_memory
         self.transform = transform
         
-        self.LR_img = sorted(os.listdir(LR_path))
-        self.GT_img = sorted(os.listdir(GT_path))
+        self.LR_img = [f for f in sorted(os.listdir(LR_path)) if is_image_file(f)]
+        self.GT_img = [f for f in sorted(os.listdir(GT_path)) if is_image_file(f)]
         
         if in_memory:
             self.LR_img = [np.array(Image.open(os.path.join(self.LR_path, lr)).convert("RGB")).astype(np.uint8) for lr in self.LR_img]
@@ -53,10 +56,10 @@ class testOnly_data(Dataset):
     def __init__(self, LR_path, in_memory = True, transform = None):
         
         self.LR_path = LR_path
-        self.LR_img = sorted(os.listdir(LR_path))
+        self.LR_img = [f for f in sorted(os.listdir(LR_path)) if is_image_file(f)]
         self.in_memory = in_memory
         if in_memory:
-            self.LR_img = [np.array(Image.open(os.path.join(self.LR_path, lr))) for lr in self.LR_img]
+            self.LR_img = [np.array(Image.open(os.path.join(self.LR_path, lr)).convert("RGB")) for lr in self.LR_img]
         
     def __len__(self):
         
@@ -70,7 +73,7 @@ class testOnly_data(Dataset):
             LR = self.LR_img[i]
             
         else:
-            LR = np.array(Image.open(os.path.join(self.LR_path, self.LR_img[i])))
+            LR = np.array(Image.open(os.path.join(self.LR_path, self.LR_img[i])).convert("RGB"))
 
         img_item['LR'] = (LR / 127.5) - 1.0                
         img_item['LR'] = img_item['LR'].transpose(2, 0, 1).astype(np.float32)
