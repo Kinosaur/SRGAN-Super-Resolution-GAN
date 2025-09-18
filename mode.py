@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from losses import TVLoss, perceptual_loss
-from dataset import *
+from dataset import mydata, testOnly_data, crop, augmentation
 from srgan_model import Generator, Discriminator
 from vgg19 import vgg19
 import numpy as np
@@ -13,9 +13,19 @@ from skimage.color import rgb2ycbcr
 from skimage.metrics import peak_signal_noise_ratio
 
 
+def _get_device():
+    """Return the best available torch.device: cuda -> mps -> cpu."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    # torch.backends.mps.is_available requires PyTorch builds with MPS support (macOS Apple Silicon)
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def train(args):
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = _get_device()
     
     transform  = transforms.Compose([crop(args.scale, args.patch_size), augmentation()])
     dataset = mydata(GT_path = args.GT_path, LR_path = args.LR_path, in_memory = args.in_memory, transform = transform)
@@ -25,6 +35,7 @@ def train(args):
     
     
     if args.fine_tuning:        
+        # load on CPU first then move to device for compatibility across devices
         generator.load_state_dict(torch.load(args.generator_path, map_location=torch.device('cpu')))
         print("pre-trained model is loaded")
         print("path : %s"%(args.generator_path))
@@ -130,7 +141,7 @@ def train(args):
             print(d_loss.item())
             print('=========')
 
-        if fine_epoch % 500 ==0:
+        if fine_epoch % 250 ==0:
             #torch.save(generator.state_dict(), './model/SRGAN_gene_%03d.pt'%fine_epoch)
             #torch.save(discriminator.state_dict(), './model/SRGAN_discrim_%03d.pt'%fine_epoch)
             torch.save(generator.state_dict(), './model/SRGAN_gene_%03d.pt'%fine_epoch)
@@ -141,7 +152,7 @@ def train(args):
 
 def test(args):
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = _get_device()
     dataset = mydata(GT_path = args.GT_path, LR_path = args.LR_path, in_memory = False, transform = None)
     loader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers = args.num_workers)
     
@@ -188,7 +199,7 @@ def test(args):
 
 def test_only(args):
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = _get_device()
     dataset = testOnly_data(LR_path = args.LR_path, in_memory = False, transform = None)
     loader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers = args.num_workers)
     

@@ -1,6 +1,13 @@
 import torch
 import torch.nn as nn
-from torchvision import transforms
+
+
+def _get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 
 class MeanShift(nn.Conv2d):
@@ -12,8 +19,9 @@ class MeanShift(nn.Conv2d):
         std = torch.Tensor(norm_std)
         self.weight.data = torch.eye(3).view(3, 3, 1, 1) / std.view(3, 1, 1, 1)
         self.bias.data = sign * rgb_range * torch.Tensor(norm_mean) / std
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+        # choose best available device
+        self.device = _get_device()
+
         for p in self.parameters():
             p.requires_grad = False
 
@@ -24,7 +32,8 @@ class perceptual_loss(nn.Module):
         super(perceptual_loss, self).__init__()
         self.normalization_mean = [0.485, 0.456, 0.406]
         self.normalization_std = [0.229, 0.224, 0.225]
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = _get_device()
+        # MeanShift is a tiny module; create and move it to the target device
         self.transform = MeanShift(norm_mean = self.normalization_mean, norm_std = self.normalization_std).to(self.device)
         self.vgg = vgg
         self.criterion = nn.MSELoss()
