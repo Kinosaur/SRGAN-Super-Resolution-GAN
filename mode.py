@@ -82,16 +82,13 @@ def train(args):
     discriminator.train()
     
     d_optim = optim.Adam(discriminator.parameters(), lr = 1e-4)
-    scheduler = optim.lr_scheduler.StepLR(g_optim, step_size = 2000, gamma = 0.1)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(g_optim, mode='min', factor=0.2, patience=20)
     
     VGG_loss = perceptual_loss(vgg_net)
     cross_ent = nn.BCELoss()
     tv_loss = TVLoss()
     
     while fine_epoch < args.fine_train_epoch:
-        
-        scheduler.step()
-        
         for i, tr_data in enumerate(loader):
             gt = tr_data['GT'].to(device)
             lr = tr_data['LR'].to(device)
@@ -132,20 +129,20 @@ def train(args):
             g_loss.backward()
             g_optim.step()
 
-            
+        # After each epoch, update LR scheduler based on generator loss
+        scheduler.step(g_loss.item())
         fine_epoch += 1
 
+        # Print epoch and losses every 2 epochs
         if fine_epoch % 2 == 0:
-            print(fine_epoch)
-            print(g_loss.item())
-            print(d_loss.item())
+            print(f"Epoch: {fine_epoch}")
+            print(f"Generator loss: {g_loss.item()}")
+            print(f"Discriminator loss: {d_loss.item()}")
             print('=========')
 
-        if fine_epoch % 250 ==0:
-            #torch.save(generator.state_dict(), './model/SRGAN_gene_%03d.pt'%fine_epoch)
-            #torch.save(discriminator.state_dict(), './model/SRGAN_discrim_%03d.pt'%fine_epoch)
-            torch.save(generator.state_dict(), './model/SRGAN_gene_%03d.pt'%fine_epoch)
-            torch.save(discriminator.state_dict(), './model/SRGAN_discrim_%03d.pt'%fine_epoch)
+        if fine_epoch % 250 == 0:
+            torch.save(generator.state_dict(), f'./model/SRGAN_gene_{fine_epoch:03d}.pt')
+            torch.save(discriminator.state_dict(), f'./model/SRGAN_discrim_{fine_epoch:03d}.pt')
 
 
 # In[ ]:
