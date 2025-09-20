@@ -116,11 +116,12 @@ def train(args):
             
             _percep_loss, hr_feat, sr_feat = VGG_loss((gt + 1.0) / 2.0, (output + 1.0) / 2.0, layer = args.feat_layer)
             
-            L2_loss = l2_loss(output, gt)
-            percep_loss = args.vgg_rescale_coeff * _percep_loss
+            # Make L2 loss more dominant, reduce adversarial/perceptual weights
+            L2_loss = 3.0 * l2_loss(output, gt)  # Increased weight
+            percep_loss = 0.003 * _percep_loss   # Lowered weight
             real_label = torch.ones_like(fake_prob).to(device)
-            adversarial_loss = args.adv_coeff * cross_ent(fake_prob, real_label)
-            total_variance_loss = args.tv_loss_coeff * tv_loss(args.vgg_rescale_coeff * (hr_feat - sr_feat)**2)
+            adversarial_loss = 5e-4 * cross_ent(fake_prob, real_label)  # Lowered weight
+            total_variance_loss = args.tv_loss_coeff * tv_loss(0.003 * (hr_feat - sr_feat)**2)
             
             g_loss = percep_loss + adversarial_loss + total_variance_loss + L2_loss
             
